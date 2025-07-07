@@ -1,0 +1,48 @@
+require("dotenv").config();
+const express = require("express");
+const morgan = require("morgan");
+const cors = require("cors");
+const connectDB = require("./config/database");
+const { validateCloudinaryConfig } = require("./config/cloudinary");
+const authRoutes = require("./routes/authRoutes");
+const productRoutes = require("./routes/productRoutes");
+// const businessOwnerRoutes = require("./routes/businessOwnerRoutes");
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(morgan("dev"));
+
+// Validate Cloudinary configuration
+try {
+  validateCloudinaryConfig();
+  console.log("Cloudinary configuration validated successfully");
+} catch (error) {
+  console.error("Cloudinary configuration error:", error.message);
+  console.log(
+    "Product image upload will not work without proper Cloudinary configuration"
+  );
+}
+
+// Connect to MongoDB
+connectDB();
+
+// Routes
+app.get("/health", (req, res) => {
+  res.status(200).json({ message: "Server is running" });
+});
+
+// Auth Routes
+app.use("/api/auth", authRoutes);
+
+// Product Routes
+app.use("/api", productRoutes);
+
+// app.use("/api/business-owner", businessOwnerRoutes);
+
+// Start the server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
