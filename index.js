@@ -9,6 +9,9 @@ const productRoutes = require("./routes/productRoutes");
 // const businessOwnerRoutes = require("./routes/businessOwnerRoutes");
 const app = express();
 
+// Trust proxy - required for rate limiting behind reverse proxy
+app.set("trust proxy", 1);
+
 // Middleware
 app.use(cors());
 app.use(express.json());
