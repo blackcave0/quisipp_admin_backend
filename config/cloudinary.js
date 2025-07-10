@@ -12,10 +12,11 @@ cloudinary.config({
 
 // Create Cloudinary storage for different product categories
 const createCloudinaryStorage = (category) => {
+  const sanitizedCategory = sanitizeCategoryName(category);
   return new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
-      folder: `quisipp/products/${category}`,
+      folder: `quisipp/products/${sanitizedCategory}`,
       allowed_formats: ["jpg", "jpeg", "png", "webp"],
       transformation: [
         { width: 800, height: 800, crop: "limit", quality: "auto:good" },
@@ -24,7 +25,7 @@ const createCloudinaryStorage = (category) => {
       public_id: (req, file) => {
         const timestamp = Date.now();
         const randomString = Math.random().toString(36).substring(2, 15);
-        return `${category}_${timestamp}_${randomString}`;
+        return `${sanitizedCategory}_${timestamp}_${randomString}`;
       },
     },
   });
@@ -60,6 +61,15 @@ const uploadToMemory = multer({
   },
 });
 
+// Function to sanitize category name for Cloudinary
+const sanitizeCategoryName = (category) => {
+  return category
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "_") // Replace non-alphanumeric characters with underscores
+    .replace(/_+/g, "_") // Replace multiple underscores with single underscore
+    .replace(/^_|_$/g, ""); // Remove leading/trailing underscores
+};
+
 // Function to optimize and upload image to Cloudinary
 const optimizeAndUploadImage = async (
   buffer,
@@ -80,14 +90,16 @@ const optimizeAndUploadImage = async (
       })
       .toBuffer();
 
-    const folderPath = `quisipp/products/${category}`;
+    // Sanitize category for folder and public_id
+    const sanitizedCategory = sanitizeCategoryName(category);
+    const folderPath = `quisipp/products/${sanitizedCategory}`;
 
     // Upload to Cloudinary
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: folderPath,
-          public_id: `${category}_${Date.now()}_${Math.random()
+          public_id: `${sanitizedCategory}_${Date.now()}_${Math.random()
             .toString(36)
             .substring(2, 15)}`,
           transformation: [
@@ -123,23 +135,45 @@ const optimizeAndUploadImage = async (
 
 // Function to upload multiple images
 const uploadMultipleImages = async (files, category) => {
-  const uploadPromises = files.map((file) =>
-    optimizeAndUploadImage(file.buffer, file.originalname, category)
-  );
+  const uploadPromises = files.map(async (file) => {
+    try {
+      return await optimizeAndUploadImage(
+        file.buffer,
+        file.originalname,
+        category
+      );
+    } catch (error) {
+      console.error(`Failed to upload ${file.originalname}:`, error);
+      return { error: error.message, filename: file.originalname };
+    }
+  });
 
   try {
     const results = await Promise.all(uploadPromises);
-    return results;
-  } catch (error) {
-    // If any upload fails, clean up successful uploads
-    const successfulUploads = results.filter(
-      (result) => result && result.publicId
-    );
-    if (successfulUploads.length > 0) {
-      await deleteMultipleImages(
-        successfulUploads.map((upload) => upload.publicId)
+
+    // Separate successful uploads from failed ones
+    const successfulUploads = results.filter((result) => !result.error);
+    const failedUploads = results.filter((result) => result.error);
+
+    if (failedUploads.length > 0) {
+      console.error("Some uploads failed:", failedUploads);
+
+      // If some uploads failed, clean up successful ones and throw error
+      if (successfulUploads.length > 0) {
+        console.log("Cleaning up successful uploads due to partial failure...");
+        await deleteMultipleImages(
+          successfulUploads.map((upload) => upload.publicId)
+        );
+      }
+
+      throw new Error(
+        `Failed to upload ${failedUploads.length} out of ${files.length} images`
       );
     }
+
+    return successfulUploads;
+  } catch (error) {
+    console.error("Error in uploadMultipleImages:", error);
     throw error;
   }
 };

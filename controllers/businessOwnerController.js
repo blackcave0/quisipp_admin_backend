@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { BASE_URL, BASE_URL_PROD } = require("../config/api");
 
 // Register a new business owner
 const createBusinessOwner = async (req, res) => {
@@ -14,7 +15,7 @@ const createBusinessOwner = async (req, res) => {
 const loginBusinessOwner = async (req, res) => {
   try {
     const businessOwner = await axios.post(
-      "https://quisipp-delivery-backend-1.onrender.com/api/business-owner/login",
+      `${BASE_URL_PROD}/business-owner/login`,
       req.body
     );
     
@@ -54,7 +55,7 @@ const getAllBusinesOwners = async (req, res) => {
   try {
     // Get all users with role "business-owner" from the database
     const businessOwners = await axios.get(
-      "https://quisipp-delivery-backend-1.onrender.com/api/admin/all-business-owners",
+      `${BASE_URL_PROD}/admin/all-business-owners`,
       {
         headers: {
           "x-admin-key": process.env.ADMIN_KEY,
@@ -87,7 +88,7 @@ const getAllBusinesOwners = async (req, res) => {
 const createPasswordForBusinessOwner = async (req, res) => {
   try {
     const businessOwners = await axios.get(
-      "https://quisipp-delivery-backend-1.onrender.com/api/auth/all-business-owners"
+      `${BASE_URL_PROD}/auth/all-business-owners`
     );
 
     const data = businessOwners.data.findAndUpdate(
@@ -121,7 +122,7 @@ const createPasswordForBusinessOwner = async (req, res) => {
 const updateBusinessOwner = async (req, res) => {
   try {
     const businessOwner = await axios.put(
-      `https://quisipp-delivery-backend-1.onrender.com/api/admin/update-business-owner/${req.params.id}`,
+      `${BASE_URL_PROD}/admin/update-business-owner/${req.params.id}`,
       req.body,
       {
         headers: {

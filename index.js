@@ -13,7 +13,15 @@ const app = express();
 app.set("trust proxy", 1);
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    // origin: ["http://localhost:5173", "http://localhost:5001"],
+    origin: "*",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-admin-key"],
+  })
+);
 app.use(express.json());
 app.use(morgan("dev"));
 
