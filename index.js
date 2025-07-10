@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
+const helmet = require("helmet");
 const connectDB = require("./config/database");
 const { validateCloudinaryConfig } = require("./config/cloudinary");
 const authRoutes = require("./routes/authRoutes");
@@ -11,12 +12,15 @@ const app = express();
 
 // Trust proxy - required for rate limiting behind reverse proxy
 app.set("trust proxy", 1);
+app.use(helmet());
 
 // Middleware
 app.use(
   cors({
     // origin: ["http://localhost:5173", "http://localhost:5001"],
-    origin: "*",
+    // origin: "*",
+    origin: "https://quisipp-admin.vercel.app/",
+    // origin: "http://localhost:5173", // For local development only
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "x-admin-key"],
