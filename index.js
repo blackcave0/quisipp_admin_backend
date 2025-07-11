@@ -14,7 +14,11 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(helmet());
 
-const allowedOrigins = ["https://quisipp-admin.vercel.app"]; // ✅ No slash at end
+const allowedOrigins = [
+  "https://quisipp-admin.vercel.app",
+  "https://quisipp.com",
+  "https://www.quisipp.com",
+]; // ✅ No slash at end
 
 // Middleware
 app.use(
