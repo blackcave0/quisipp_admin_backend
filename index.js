@@ -17,7 +17,7 @@ app.use(helmet());
 const allowedOrigins = [
   "https://quisipp-admin.vercel.app",
   "https://quisipp.com",
-  // "https://www.quisipp.com",
+  "https://www.quisipp.com",
 ]; // ✅ No slash at end
 
 // Middleware
