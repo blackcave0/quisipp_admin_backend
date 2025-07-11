@@ -14,12 +14,20 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(helmet());
 
+const allowedOrigins = ["https://quisipp-admin.vercel.app"]; // ✅ No slash at end
+
 // Middleware
 app.use(
   cors({
     // origin: ["http://localhost:5173", "http://localhost:5001"],
     // origin: "*",
-    origin: "https://quisipp-admin.vercel.app/",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     // origin: "http://localhost:5173", // For local development only
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
