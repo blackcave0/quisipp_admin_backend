@@ -1,5 +1,5 @@
-const AdminProduct = require('../models/Product');
-const User = require('../models/User');
+const AdminProduct = require("../models/Product");
+const User = require("../models/User");
 
 // Business Owner: Search available products
 const searchAvailableProducts = async (req, res) => {
@@ -13,8 +13,8 @@ const searchAvailableProducts = async (req, res) => {
       weights,
       page = 1,
       limit = 20,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
+      sortBy = "createdAt",
+      sortOrder = "desc",
     } = req.query;
 
     const options = {
@@ -22,17 +22,21 @@ const searchAvailableProducts = async (req, res) => {
       minPrice: minPrice ? parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
       brand,
-      weights: weights ? (Array.isArray(weights) ? weights : weights.split(',')) : undefined,
+      weights: weights
+        ? Array.isArray(weights)
+          ? weights
+          : weights.split(",")
+        : undefined,
       page: parseInt(page),
       limit: parseInt(limit),
       sortBy,
-      sortOrder: sortOrder === 'desc' ? -1 : 1
+      sortOrder: sortOrder === "desc" ? -1 : 1,
     };
 
     const products = await AdminProduct.searchProducts(search, options);
-    const totalProducts = await AdminProduct.countDocuments({ 
+    const totalProducts = await AdminProduct.countDocuments({
       isActive: true,
-      ...(category && category !== 'all' ? { productCategory: category } : {})
+      ...(category && category !== "all" ? { productCategory: category } : {}),
     });
 
     const totalPages = Math.ceil(totalProducts / options.limit);
@@ -40,13 +44,13 @@ const searchAvailableProducts = async (req, res) => {
     // Get business owner's adopted products to mark which ones are already adopted
     const businessOwner = await User.findById(req.user.id);
     const adoptedProductIds = businessOwner.products
-      .filter(product => product.originalProductId)
-      .map(product => product.originalProductId.toString());
+      .filter((product) => product.originalProductId)
+      .map((product) => product.originalProductId.toString());
 
     // Add adoption status to products
-    const productsWithAdoptionStatus = products.map(product => ({
+    const productsWithAdoptionStatus = products.map((product) => ({
       ...product.toObject(),
-      isAdopted: adoptedProductIds.includes(product._id.toString())
+      isAdopted: adoptedProductIds.includes(product._id.toString()),
     }));
 
     res.status(200).json({
@@ -57,16 +61,15 @@ const searchAvailableProducts = async (req, res) => {
         totalPages,
         totalProducts,
         hasNextPage: options.page < totalPages,
-        hasPrevPage: options.page > 1
-      }
+        hasPrevPage: options.page > 1,
+      },
     });
-
   } catch (error) {
-    console.error('Error searching available products:', error);
+    console.error("Error searching available products:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
@@ -77,15 +80,20 @@ const adoptAdminProduct = async (req, res) => {
     const { productId } = req.params;
     const {
       selectedWeights,
-      stockStatus = 'inStock',
-      productQuantity = 0
+      customWeightSelections,
+      stockStatus = "inStock",
+      productQuantity = 0,
     } = req.body;
 
     // Validate required fields
-    if (!selectedWeights || !Array.isArray(selectedWeights) || selectedWeights.length === 0) {
+    if (
+      !selectedWeights ||
+      !Array.isArray(selectedWeights) ||
+      selectedWeights.length === 0
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'At least one weight option must be selected'
+        message: "At least one weight option must be selected",
       });
     }
 
@@ -94,20 +102,69 @@ const adoptAdminProduct = async (req, res) => {
     if (!adminProduct || !adminProduct.isActive) {
       return res.status(404).json({
         success: false,
-        message: 'Product not found or no longer available'
+        message: "Product not found or no longer available",
       });
     }
 
     // Validate selected weights are available
-    const invalidWeights = selectedWeights.filter(weight => 
-      !adminProduct.availableWeights.includes(weight)
+    const invalidWeights = selectedWeights.filter(
+      (weight) => !adminProduct.availableWeights.includes(weight)
     );
-    
+
     if (invalidWeights.length > 0) {
       return res.status(400).json({
         success: false,
-        message: `Invalid weight selections: ${invalidWeights.join(', ')}`
+        message: `Invalid weight selections: ${invalidWeights.join(", ")}`,
       });
+    }
+
+    // Validate custom weight selections if "custom" is selected
+    let customWeightDetails = {};
+    if (selectedWeights.includes("custom")) {
+      if (
+        !customWeightSelections ||
+        typeof customWeightSelections !== "object"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Custom weight details are required when custom weight is selected",
+        });
+      }
+
+      // Validate custom weight details
+      const validUnits = [
+        "gm",
+        "kg",
+        "ml",
+        "ltr",
+        "pieces",
+        "pack",
+        "bottle",
+        "box",
+        "other",
+      ];
+      if (!customWeightSelections.value || !customWeightSelections.unit) {
+        return res.status(400).json({
+          success: false,
+          message: "Custom weight value and unit are required",
+        });
+      }
+
+      if (!validUnits.includes(customWeightSelections.unit)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid custom weight unit: ${customWeightSelections.unit}`,
+        });
+      }
+
+      customWeightDetails = {
+        value: customWeightSelections.value.trim(),
+        unit: customWeightSelections.unit,
+        description: customWeightSelections.description
+          ? customWeightSelections.description.trim()
+          : "",
+      };
     }
 
     // Get business owner details
@@ -115,74 +172,95 @@ const adoptAdminProduct = async (req, res) => {
     if (!businessOwner) {
       return res.status(404).json({
         success: false,
-        message: 'Business owner not found'
+        message: "Business owner not found",
       });
     }
 
     // Check if product is already adopted
     const existingAdoption = businessOwner.products.find(
-      product => product.originalProductId && product.originalProductId.toString() === productId
+      (product) =>
+        product.originalProductId &&
+        product.originalProductId.toString() === productId
     );
 
     if (existingAdoption) {
       return res.status(400).json({
         success: false,
-        message: 'Product has already been adopted'
+        message: "Product has already been adopted",
       });
     }
 
     // Create adopted products for each selected weight
-    const adoptedProducts = selectedWeights.map(weight => ({
-      productName: adminProduct.productName,
-      productDescription: adminProduct.productDescription,
-      productPrice: adminProduct.productPrice,
-      productCategory: adminProduct.productCategory,
-      productBrand: adminProduct.productBrand,
-      productImages: adminProduct.cloudinaryUrls.map(img => ({
-        imageUrl: img.url,
-        publicId: img.publicId
-      })),
-      cloudinaryUrls: adminProduct.cloudinaryUrls,
-      availableWeights: adminProduct.availableWeights,
-      selectedWeight: weight,
-      productQuantity: parseInt(productQuantity),
-      stockStatus,
-      adminCreated: false,
-      originalProductId: adminProduct._id,
-      adoptedBy: businessOwner._id,
-      businessOwner: businessOwner._id,
-      businessOwnerPhone: businessOwner.phoneNumber,
-      businessOwnerEmail: businessOwner.email,
-      businessOwnerAddress: businessOwner.businessAddress || businessOwner.address,
-      productCreatedAt: new Date(),
-      productUpdatedAt: new Date()
-    }));
+    const adoptedProducts = selectedWeights.map((weight) => {
+      const baseProduct = {
+        productName: adminProduct.productName,
+        productDescription: adminProduct.productDescription,
+        productPrice: adminProduct.productPrice,
+        productCategory: adminProduct.productCategory,
+        productBrand: adminProduct.productBrand,
+        discountType: adminProduct.discountType || "none",
+        discountValue: adminProduct.discountValue || 0,
+        discountStartDate: adminProduct.discountStartDate,
+        discountEndDate: adminProduct.discountEndDate,
+        discountedPrice:
+          adminProduct.discountedPrice || adminProduct.productPrice,
+        productImages: adminProduct.cloudinaryUrls.map((img) => ({
+          imageUrl: img.url,
+          publicId: img.publicId,
+        })),
+        cloudinaryUrls: adminProduct.cloudinaryUrls,
+        availableWeights: adminProduct.availableWeights,
+        selectedWeight: weight,
+        productQuantity: parseInt(productQuantity),
+        stockStatus,
+        adminCreated: false,
+        originalProductId: adminProduct._id,
+        adoptedBy: businessOwner._id,
+        businessOwner: businessOwner._id,
+        businessOwnerPhone: businessOwner.phoneNumber,
+        businessOwnerEmail: businessOwner.email,
+        businessOwnerAddress:
+          businessOwner.businessAddress || businessOwner.address,
+        productCreatedAt: new Date(),
+        productUpdatedAt: new Date(),
+      };
+
+      // Add custom weight details if this is a custom weight selection
+      if (weight === "custom" && Object.keys(customWeightDetails).length > 0) {
+        baseProduct.customWeightDetails = customWeightDetails;
+        baseProduct.customProductWeight = `${customWeightDetails.value} ${customWeightDetails.unit}`;
+      }
+
+      return baseProduct;
+    });
 
     // Add adopted products to business owner's products array
     businessOwner.products.push(...adoptedProducts);
     await businessOwner.save();
 
     // Update adoption count in admin product
-    await AdminProduct.findByIdAndUpdate(
-      productId,
-      { $inc: { adoptionCount: selectedWeights.length } }
-    );
+    await AdminProduct.findByIdAndUpdate(productId, {
+      $inc: { adoptionCount: selectedWeights.length },
+    });
 
     res.status(201).json({
       success: true,
       message: `Product adopted successfully with ${selectedWeights.length} weight option(s)`,
-      adoptedProducts: adoptedProducts.map(product => ({
+      adoptedProducts: adoptedProducts.map((product) => ({
         ...product,
-        _id: businessOwner.products[businessOwner.products.length - selectedWeights.indexOf(product.selectedWeight) - 1]._id
-      }))
+        _id: businessOwner.products[
+          businessOwner.products.length -
+            selectedWeights.indexOf(product.selectedWeight) -
+            1
+        ]._id,
+      })),
     });
-
   } catch (error) {
-    console.error('Error adopting admin product:', error);
+    console.error("Error adopting admin product:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
@@ -196,35 +274,43 @@ const getAdoptedProducts = async (req, res) => {
       search,
       page = 1,
       limit = 20,
-      sortBy = 'productCreatedAt',
-      sortOrder = 'desc'
+      sortBy = "productCreatedAt",
+      sortOrder = "desc",
     } = req.query;
 
     const businessOwner = await User.findById(req.user.id);
     if (!businessOwner) {
       return res.status(404).json({
         success: false,
-        message: 'Business owner not found'
+        message: "Business owner not found",
       });
     }
 
-    let adoptedProducts = businessOwner.products.filter(product => product.originalProductId);
+    let adoptedProducts = businessOwner.products.filter(
+      (product) => product.originalProductId
+    );
 
     // Apply filters
-    if (category && category !== 'all') {
-      adoptedProducts = adoptedProducts.filter(product => product.productCategory === category);
+    if (category && category !== "all") {
+      adoptedProducts = adoptedProducts.filter(
+        (product) => product.productCategory === category
+      );
     }
 
-    if (stockStatus && stockStatus !== 'all') {
-      adoptedProducts = adoptedProducts.filter(product => product.stockStatus === stockStatus);
+    if (stockStatus && stockStatus !== "all") {
+      adoptedProducts = adoptedProducts.filter(
+        (product) => product.stockStatus === stockStatus
+      );
     }
 
     if (search && search.trim()) {
       const searchTerm = search.trim().toLowerCase();
-      adoptedProducts = adoptedProducts.filter(product =>
-        product.productName.toLowerCase().includes(searchTerm) ||
-        (product.productBrand && product.productBrand.toLowerCase().includes(searchTerm)) ||
-        product.productDescription.toLowerCase().includes(searchTerm)
+      adoptedProducts = adoptedProducts.filter(
+        (product) =>
+          product.productName.toLowerCase().includes(searchTerm) ||
+          (product.productBrand &&
+            product.productBrand.toLowerCase().includes(searchTerm)) ||
+          product.productDescription.toLowerCase().includes(searchTerm)
       );
     }
 
@@ -232,8 +318,8 @@ const getAdoptedProducts = async (req, res) => {
     adoptedProducts.sort((a, b) => {
       const aValue = a[sortBy];
       const bValue = b[sortBy];
-      
-      if (sortOrder === 'desc') {
+
+      if (sortOrder === "desc") {
         return bValue > aValue ? 1 : -1;
       } else {
         return aValue > bValue ? 1 : -1;
@@ -256,16 +342,15 @@ const getAdoptedProducts = async (req, res) => {
         totalPages,
         totalProducts,
         hasNextPage: parseInt(page) < totalPages,
-        hasPrevPage: parseInt(page) > 1
-      }
+        hasPrevPage: parseInt(page) > 1,
+      },
     });
-
   } catch (error) {
-    console.error('Error fetching adopted products:', error);
+    console.error("Error fetching adopted products:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
@@ -274,24 +359,29 @@ const getAdoptedProducts = async (req, res) => {
 const updateAdoptedProduct = async (req, res) => {
   try {
     const { productId } = req.params;
-    const { stockStatus, productQuantity, selectedWeight } = req.body;
+    const {
+      stockStatus,
+      productQuantity,
+      selectedWeight,
+      customWeightDetails,
+    } = req.body;
 
     const businessOwner = await User.findById(req.user.id);
     if (!businessOwner) {
       return res.status(404).json({
         success: false,
-        message: 'Business owner not found'
+        message: "Business owner not found",
       });
     }
 
     const productIndex = businessOwner.products.findIndex(
-      product => product._id.toString() === productId
+      (product) => product._id.toString() === productId
     );
 
     if (productIndex === -1) {
       return res.status(404).json({
         success: false,
-        message: 'Product not found in your adopted products'
+        message: "Product not found in your adopted products",
       });
     }
 
@@ -299,10 +389,10 @@ const updateAdoptedProduct = async (req, res) => {
 
     // Only allow updates to specific fields
     if (stockStatus !== undefined) {
-      if (!['inStock', 'outOfStock'].includes(stockStatus)) {
+      if (!["inStock", "outOfStock"].includes(stockStatus)) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid stock status'
+          message: "Invalid stock status",
         });
       }
       product.stockStatus = stockStatus;
@@ -312,7 +402,7 @@ const updateAdoptedProduct = async (req, res) => {
       if (isNaN(productQuantity) || productQuantity < 0) {
         return res.status(400).json({
           success: false,
-          message: 'Product quantity must be a valid non-negative number'
+          message: "Product quantity must be a valid non-negative number",
         });
       }
       product.productQuantity = parseInt(productQuantity);
@@ -322,10 +412,100 @@ const updateAdoptedProduct = async (req, res) => {
       if (!product.availableWeights.includes(selectedWeight)) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid weight selection'
+          message: "Invalid weight selection",
         });
       }
       product.selectedWeight = selectedWeight;
+
+      // If switching to custom weight, validate custom weight details
+      if (selectedWeight === "custom") {
+        if (
+          !customWeightDetails ||
+          !customWeightDetails.value ||
+          !customWeightDetails.unit
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Custom weight details are required when selecting custom weight",
+          });
+        }
+
+        const validUnits = [
+          "gm",
+          "kg",
+          "ml",
+          "ltr",
+          "pieces",
+          "pack",
+          "bottle",
+          "box",
+          "other",
+        ];
+        if (!validUnits.includes(customWeightDetails.unit)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid custom weight unit: ${customWeightDetails.unit}`,
+          });
+        }
+
+        product.customWeightDetails = {
+          value: customWeightDetails.value.trim(),
+          unit: customWeightDetails.unit,
+          description: customWeightDetails.description
+            ? customWeightDetails.description.trim()
+            : "",
+        };
+        product.customProductWeight = `${customWeightDetails.value.trim()} ${
+          customWeightDetails.unit
+        }`;
+      } else {
+        // Clear custom weight details if switching away from custom
+        product.customWeightDetails = undefined;
+        product.customProductWeight = undefined;
+      }
+    }
+
+    // Handle standalone custom weight details update
+    if (
+      customWeightDetails !== undefined &&
+      product.selectedWeight === "custom"
+    ) {
+      if (!customWeightDetails.value || !customWeightDetails.unit) {
+        return res.status(400).json({
+          success: false,
+          message: "Custom weight value and unit are required",
+        });
+      }
+
+      const validUnits = [
+        "gm",
+        "kg",
+        "ml",
+        "ltr",
+        "pieces",
+        "pack",
+        "bottle",
+        "box",
+        "other",
+      ];
+      if (!validUnits.includes(customWeightDetails.unit)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid custom weight unit: ${customWeightDetails.unit}`,
+        });
+      }
+
+      product.customWeightDetails = {
+        value: customWeightDetails.value.trim(),
+        unit: customWeightDetails.unit,
+        description: customWeightDetails.description
+          ? customWeightDetails.description.trim()
+          : "",
+      };
+      product.customProductWeight = `${customWeightDetails.value.trim()} ${
+        customWeightDetails.unit
+      }`;
     }
 
     product.productUpdatedAt = new Date();
@@ -333,16 +513,15 @@ const updateAdoptedProduct = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Product updated successfully',
-      product: businessOwner.products[productIndex]
+      message: "Product updated successfully",
+      product: businessOwner.products[productIndex],
     });
-
   } catch (error) {
-    console.error('Error updating adopted product:', error);
+    console.error("Error updating adopted product:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
@@ -356,18 +535,18 @@ const removeAdoptedProduct = async (req, res) => {
     if (!businessOwner) {
       return res.status(404).json({
         success: false,
-        message: 'Business owner not found'
+        message: "Business owner not found",
       });
     }
 
     const productIndex = businessOwner.products.findIndex(
-      product => product._id.toString() === productId
+      (product) => product._id.toString() === productId
     );
 
     if (productIndex === -1) {
       return res.status(404).json({
         success: false,
-        message: 'Product not found in your adopted products'
+        message: "Product not found in your adopted products",
       });
     }
 
@@ -377,23 +556,21 @@ const removeAdoptedProduct = async (req, res) => {
 
     // Update adoption count in admin product
     if (removedProduct.originalProductId) {
-      await AdminProduct.findByIdAndUpdate(
-        removedProduct.originalProductId,
-        { $inc: { adoptionCount: -1 } }
-      );
+      await AdminProduct.findByIdAndUpdate(removedProduct.originalProductId, {
+        $inc: { adoptionCount: -1 },
+      });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Product removed successfully'
+      message: "Product removed successfully",
     });
-
   } catch (error) {
-    console.error('Error removing adopted product:', error);
+    console.error("Error removing adopted product:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
@@ -403,5 +580,5 @@ module.exports = {
   adoptAdminProduct,
   getAdoptedProducts,
   updateAdoptedProduct,
-  removeAdoptedProduct
+  removeAdoptedProduct,
 };

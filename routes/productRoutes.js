@@ -9,6 +9,9 @@ const {
   getAdminProductById,
   updateAdminProduct,
   deleteAdminProduct,
+  createMultipleAdminProducts,
+  deleteMultipleAdminProducts,
+  getAdminProductCustomWeights,
 } = require("../controllers/productController");
 
 const {
@@ -54,7 +57,7 @@ const searchRateLimit = rateLimit({
 // Create new product (Admin only)
 router.post(
   "/admin/products",
-  uploadRateLimit,
+  // uploadRateLimit,
   adminAuth,
   uploadToMemory.array("productImages", 20),
   createAdminProduct
@@ -63,8 +66,43 @@ router.post(
 // Get all admin products with search and filters
 router.get("/admin/products", searchRateLimit, adminAuth, getAdminProducts);
 
+// Rate limiting for bulk operations
+const bulkOperationRateLimit = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 3, // limit each IP to 3 bulk operations per 5 minutes
+  message: {
+    success: false,
+    message: "Too many bulk operations, please try again later.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Bulk create multiple products (Admin only) - MUST come before /:id routes
+router.post(
+  "/admin/products/bulk",
+  bulkOperationRateLimit,
+  adminAuth,
+  createMultipleAdminProducts
+);
+
+// Bulk delete multiple products (Admin only) - MUST come before /:id routes
+router.delete(
+  "/admin/products/bulk",
+  bulkOperationRateLimit,
+  adminAuth,
+  deleteMultipleAdminProducts
+);
+
 // Get single admin product by ID
 router.get("/admin/products/:id", adminAuth, getAdminProductById);
+
+// Get custom weights for a specific admin product
+router.get(
+  "/admin/products/:id/custom-weights",
+  adminAuth,
+  getAdminProductCustomWeights
+);
 
 // Update admin product
 router.put("/admin/products/:id", adminAuth, updateAdminProduct);
@@ -139,6 +177,26 @@ router.get("/categories", (req, res) => {
   res.status(200).json({
     success: true,
     categories,
+  });
+});
+
+// Get custom weight units
+router.get("/custom-weight-units", (req, res) => {
+  const customWeightUnits = [
+    { value: "gm", label: "Grams (gm)" },
+    { value: "kg", label: "Kilograms (kg)" },
+    { value: "ml", label: "Milliliters (ml)" },
+    { value: "ltr", label: "Liters (ltr)" },
+    { value: "pieces", label: "Pieces" },
+    { value: "pack", label: "Pack" },
+    { value: "bottle", label: "Bottle" },
+    { value: "box", label: "Box" },
+    { value: "other", label: "Other" },
+  ];
+
+  res.status(200).json({
+    success: true,
+    customWeightUnits,
   });
 });
 

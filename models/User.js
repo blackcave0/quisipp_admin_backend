@@ -15,6 +15,27 @@ const productSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  // Discount fields
+  discountType: {
+    type: String,
+    enum: ["percentage", "fixed", "none"],
+    default: "none",
+  },
+  discountValue: {
+    type: Number,
+    min: 0,
+    default: 0,
+  },
+  discountStartDate: {
+    type: Date,
+  },
+  discountEndDate: {
+    type: Date,
+  },
+  discountedPrice: {
+    type: Number,
+    min: 0,
+  },
   productImages: [
     {
       imageUrl: {
@@ -279,6 +300,31 @@ const productSchema = new mongoose.Schema({
   },
   customProductWeight: {
     type: String,
+  },
+  // Enhanced custom weight support for adopted products
+  customWeightDetails: {
+    value: {
+      type: String,
+      trim: true,
+    },
+    unit: {
+      type: String,
+      enum: [
+        "gm",
+        "kg",
+        "ml",
+        "ltr",
+        "pieces",
+        "pack",
+        "bottle",
+        "box",
+        "other",
+      ],
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
   },
   adminCreated: {
     type: Boolean,
