@@ -19,6 +19,27 @@ const adminProductSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // Discount fields
+    discountType: {
+      type: String,
+      enum: ["percentage", "fixed", "none"],
+      default: "none",
+    },
+    discountValue: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    discountStartDate: {
+      type: Date,
+    },
+    discountEndDate: {
+      type: Date,
+    },
+    discountedPrice: {
+      type: Number,
+      min: 0,
+    },
     productCategory: {
       type: String,
       required: true,
@@ -112,6 +133,35 @@ const adminProductSchema = new mongoose.Schema(
           "custom",
         ],
         required: true,
+      },
+    ],
+    // Custom weight/volume values when "custom" is selected
+    customWeights: [
+      {
+        value: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        unit: {
+          type: String,
+          required: true,
+          enum: [
+            "gm",
+            "kg",
+            "ml",
+            "ltr",
+            "pieces",
+            "pack",
+            "bottle",
+            "box",
+            "other",
+          ],
+        },
+        description: {
+          type: String,
+          trim: true,
+        },
       },
     ],
     cloudinaryUrls: [
