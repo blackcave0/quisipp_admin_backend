@@ -890,6 +890,22 @@ const createMultipleAdminProducts = async (req, res) => {
           (weight) => weight !== "custom"
         );
 
+        // Handle discount fields
+        const discountType = productData.discountType || "none";
+        const discountValue = productData.discountValue
+          ? parseFloat(productData.discountValue)
+          : 0;
+
+        // Calculate discounted price
+        let calculatedDiscountedPrice = price;
+        if (discountType !== "none" && discountValue > 0) {
+          if (discountType === "percentage") {
+            calculatedDiscountedPrice = price - (price * discountValue) / 100;
+          } else if (discountType === "fixed") {
+            calculatedDiscountedPrice = Math.max(0, price - discountValue);
+          }
+        }
+
         // Create product (without images for bulk creation)
         const newProduct = new AdminProduct({
           productName: productData.productName.trim(),
@@ -900,6 +916,15 @@ const createMultipleAdminProducts = async (req, res) => {
             ? productData.productBrand.trim()
             : undefined,
           availableWeights: filteredWeights,
+          discountType: discountType,
+          discountValue: discountValue,
+          discountStartDate: productData.discountStartDate
+            ? new Date(productData.discountStartDate)
+            : undefined,
+          discountEndDate: productData.discountEndDate
+            ? new Date(productData.discountEndDate)
+            : undefined,
+          discountedPrice: calculatedDiscountedPrice,
           cloudinaryUrls: [], // No images in bulk creation
           createdBy: req.user.id,
           tags: productData.tags
