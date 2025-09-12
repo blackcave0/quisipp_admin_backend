@@ -6,7 +6,10 @@ const adminAuth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Unauthorized" });
+      return res.status(401).json({ 
+        success: false,
+        message: "Access denied. No token provided." 
+      });
     }
 
     const token = authHeader.split(" ")[1];
@@ -17,18 +20,43 @@ const adminAuth = async (req, res, next) => {
     // check if the user is an admin
     const user = await User.findById(decoded.id);
     // console.log(user.role);
-    if (!user || user.role !== "admin") {
-      return res
-        .status(401)
-        .json({ message: "Access denied, only admins can access this route" });
+    if (!user) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Access denied. User not found." 
+      });
+    }
+
+    if (user.role !== "admin") {
+      return res.status(403).json({ 
+        success: false,
+        message: "Access denied. Admin privileges required." 
+      });
     }
 
     // add the user to the request object
     req.user = user;
     next();
   } catch (error) {
-    console.log("Error in adminAuth", error);
-    res.status(500).json({ message: "Internal server error adminAuth" });
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        success: false,
+        message: "Access denied. Invalid token." 
+      });
+    }
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        success: false,
+        message: "Access denied. Token expired." 
+      });
+    }
+
+    console.error("Error in adminAuth middleware:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Internal server error" 
+    });
   }
 };
 

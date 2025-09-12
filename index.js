@@ -18,7 +18,7 @@ const allowedOrigins = [
   "https://quisipp-admin.vercel.app",
   "https://quisipp.com",
   "https://www.quisipp.com",
-  // "http://localhost:5173",
+  "http://localhost:5173",
   // "http://172.27.110.104:5173",
 ]; // ✅ No slash at end
 
