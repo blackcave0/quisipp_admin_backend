@@ -64,7 +64,8 @@ router.post(
 );
 
 // Get all admin products with search and filters
-router.get("/admin/products", searchRateLimit, adminAuth, getAdminProducts);
+//## removing adminAuth, 
+router.get("/admin/products", searchRateLimit,getAdminProducts);
 
 // Rate limiting for bulk operations
 const bulkOperationRateLimit = rateLimit({
@@ -95,7 +96,7 @@ router.delete(
 );
 
 // Get single admin product by ID
-router.get("/admin/products/:id", adminAuth, getAdminProductById);
+router.get("/admin/products/:id",  getAdminProductById);
 
 // Get custom weights for a specific admin product
 router.get(
