@@ -7,7 +7,9 @@ const {
   getAllBusinesOwners,
   createPasswordForBusinessOwner,
   updateBusinessOwner,
+  updateBusinessOwnerVerification,
   loginBusinessOwner,
+  setPasswordForBusinessOwner,
 } = require("../controllers/businessOwnerController");
 const {
   getAllDeliveryPersons,
@@ -79,18 +81,18 @@ router.get(
 
 // Create Delivery Person
 router.post(
-    "/create-delivery-person",
-    businessOwnerApiRateLimit,
-    protectWithKey,
-    createDeliveryPerson
+  "/create-delivery-person",
+  businessOwnerApiRateLimit,
+  protectWithKey,
+  createDeliveryPerson
 );
 
 // Update Delivery Person
 router.put(
-    "/update-delivery-person/:id",
-    businessOwnerApiRateLimit,
-    protectWithKey,
-    updateDeliveryPerson
+  "/update-delivery-person/:id",
+  businessOwnerApiRateLimit,
+  protectWithKey,
+  updateDeliveryPerson
 );
 
 // Login Business Owner (with rate limiting for external API calls)
@@ -105,8 +107,8 @@ router.get("/business-owner/profile", businessOwnerOnlyAuth, (req, res) => {
     user: {
       id: req.user._id,
       email: req.user.email,
-      role: req.user.role
-    }
+      role: req.user.role,
+    },
   });
 });
 
@@ -118,9 +120,25 @@ router.put("/business-owner/profile", businessOwnerOnlyAuth, (req, res) => {
     user: {
       id: req.user._id,
       email: req.user.email,
-      role: req.user.role
-    }
+      role: req.user.role,
+    },
   });
 });
+
+// Create Password For Business Owner
+router.put(
+  "/business-owner/:id/set-password",
+  businessOwnerApiRateLimit, // Add rate limiting
+  protectWithKey, // Use admin key authentication like other admin operations
+  setPasswordForBusinessOwner
+);
+
+// Update Business Owner Verification Status
+router.put(
+  "/business-owner/:id/verification",
+  businessOwnerApiRateLimit, // Add rate limiting
+  protectWithKey, // Use admin key authentication like other admin operations
+  updateBusinessOwnerVerification
+);
 
 module.exports = router;

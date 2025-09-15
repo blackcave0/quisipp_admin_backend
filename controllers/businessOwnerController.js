@@ -1,6 +1,14 @@
 const axios = require("axios");
+const bcrypt = require("bcrypt");
+const User = require("../models/User");
 const { BASE_URL, BASE_URL_PROD } = require("../config/api");
 const { retryWithBackoff, handleApiError } = require("../utils/retryUtils");
+
+// /**
+//  * @desc    Sets a password for a business owner from the admin dashboard.
+//  * @route   PUT /api/business-owner/:id/set-password
+//  * @access  Admin
+//  */
 
 // Register a new business owner
 const createBusinessOwner = async (req, res) => {
@@ -80,38 +88,38 @@ const getAllBusinesOwners = async (req, res) => {
 };
 
 // [##TODO : remove this function] create password for business owner
-const createPasswordForBusinessOwner = async (req, res) => {
-  try {
-    const businessOwners = await axios.get(
-      `${BASE_URL_PROD}/auth/all-business-owners`
-    );
+// const createPasswordForBusinessOwner = async (req, res) => {
+//   try {
+//     const businessOwners = await axios.get(
+//       `${BASE_URL_PROD}/auth/all-business-owners`
+//     );
 
-    const data = businessOwners.data.findAndUpdate(
-      { phoneNumber: req.body.phoneNumber },
-      { password: req.body.password },
-      { new: true }
-    );
+//     const data = businessOwners.data.findAndUpdate(
+//       { phoneNumber: req.body.phoneNumber },
+//       { password: req.body.password },
+//       { new: true }
+//     );
 
-    if (data) {
-      res.status(200).json({
-        success: true,
-        message: "Password created successfully",
-        data: data,
-      });
-    } else {
-      res.status(404).json({
-        success: false,
-        message: "Business owner not found",
-      });
-    }
-  } catch (error) {
-    console.log("Error in createPasswordForBusinessOwner", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error business owner",
-    });
-  }
-};
+//     if (data) {
+//       res.status(200).json({
+//         success: true,
+//         message: "Password created successfully",
+//         data: data,
+//       });
+//     } else {
+//       res.status(404).json({
+//         success: false,
+//         message: "Business owner not found",
+//       });
+//     }
+//   } catch (error) {
+//     console.log("Error in createPasswordForBusinessOwner", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal server error business owner",
+//     });
+//   }
+// };
 
 // update business owner
 const updateBusinessOwner = async (req, res) => {
@@ -137,8 +145,8 @@ const updateBusinessOwner = async (req, res) => {
       );
     });
 
-    console.log("External API response status:", businessOwner.status);
-    console.log("External API response data:", businessOwner.data);
+    // console.log("External API response status:", businessOwner.status);
+    // console.log("External API response data:", businessOwner.data);
 
     if (businessOwner.data.success === true) {
       res.status(200).json({
@@ -176,10 +184,115 @@ const updateBusinessOwner = async (req, res) => {
     handleApiError(error, res, "Failed to update business owner");
   }
 };
+
+const setPasswordForBusinessOwner = async (req, res) => {
+  try {
+    const { id } = req.params; // The ID of the user to update
+    const { password } = req.body; // The new password from the admin form
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required.",
+      });
+    }
+
+    // This makes a secure, server-to-server call to the User Backend.
+    const response = await retryWithBackoff(async () => {
+      return await axios.put(
+        // This URL matches the secured route in the user backend
+        `${BASE_URL_PROD}/admin/update-business-owner/${id}`,
+        { password: password }, // The request body contains the plain-text password
+        {
+          headers: {
+            // This header is required by the adminKeyAuth middleware
+            "x-admin-key": process.env.ADMIN_KEY,
+          },
+        }
+      );
+    });
+
+    if (response.data.success) {
+      res.status(200).json({
+        success: true,
+        message: "Password has been set successfully for the business owner.",
+      });
+    } else {
+      // Forward the error message from the user backend
+      res.status(400).json({
+        success: false,
+        message: response.data.message || "Failed to set password.",
+      });
+    }
+  } catch (error) {
+    handleApiError(error, res, "Failed to set password for business owner");
+  }
+};
+
+const updateBusinessOwnerVerification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isVerified, password } = req.body;
+
+    console.log("Updating business owner verification with ID:", id);
+    console.log("Update data:", req.body);
+
+    // Prepare data for external API call
+    const externalUpdateData = {};
+    if (isVerified !== undefined) {
+      externalUpdateData.isVerified = isVerified;
+    }
+    if (password) {
+      externalUpdateData.password = password; // Send plain password to external API
+    }
+
+    if (Object.keys(externalUpdateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No update data provided",
+      });
+    }
+
+    const externalResponse = await retryWithBackoff(async () => {
+      return await axios.put(
+        `${BASE_URL_PROD}/admin/update-business-owner/${id}`,
+        externalUpdateData,
+        {
+          headers: {
+            "x-admin-key": process.env.ADMIN_KEY,
+          },
+          timeout: 10000,
+        }
+      );
+    });
+
+    // console.log("External API response status:", externalResponse.status);
+    // console.log("External API response data:", externalResponse.data);
+
+    if (externalResponse.data.success === true) {
+      res.status(200).json({
+        success: true,
+        message: "Business owner verification updated successfully",
+        businessOwner: externalResponse.data.businessOwner || externalResponse.data.data,
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: externalResponse.data.message || "Update failed",
+      });
+    }
+  } catch (error) {
+    console.error("Error in updateBusinessOwnerVerification:", error);
+    handleApiError(error, res, "Failed to update business owner verification");
+  }
+};
+
 module.exports = {
   createBusinessOwner,
   getAllBusinesOwners,
-  createPasswordForBusinessOwner,
+  // createPasswordForBusinessOwner,
+  setPasswordForBusinessOwner,
   updateBusinessOwner,
+  updateBusinessOwnerVerification,
   loginBusinessOwner,
 };
