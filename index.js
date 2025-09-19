@@ -3,6 +3,10 @@ const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
 const helmet = require("helmet");
+// node-cron implementation
+const cron = require("node-cron");
+const https = require("https");
+
 const connectDB = require("./config/database");
 const { validateCloudinaryConfig } = require("./config/cloudinary");
 const authRoutes = require("./routes/authRoutes");
@@ -66,6 +70,30 @@ app.get("/health", (req, res) => {
 // Auth Routes
 app.use("/api/auth", authRoutes);
 
+// Cron job to delete expired tokens every hour - TODO: Move this to a separate file
+
+const job = cron.schedule('*/5 * * * *', () => {
+  console.log('Ping server every minute 5 minutes ');
+  const url = "https://quisipp-admin-backend.onrender.com/health";
+  https
+    .get(url, (res) => {
+      if (res.statusCode === 200) {
+        console.log(`Ping successful at ${new Date().toISOString()}`);
+      } else {
+        console.error(
+          `Ping failed with status code: ${
+            res.statusCode
+          } at ${new Date().toISOString()}`
+        );
+      }
+    })
+    .on("error", (err) => {
+      console.error(
+        `Error during ping: ${err.message} at ${new Date().toISOString()}`
+      );
+    });
+})
+job.start();
 // Product Routes
 app.use("/api", productRoutes);
 
